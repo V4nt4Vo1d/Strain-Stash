@@ -43,6 +43,7 @@ export interface StrainRating {
   friend_id: string
   status: RatingStatus | null
   favorite: boolean
+  score: number | null
   updated_at: string
 }
 
@@ -52,8 +53,6 @@ export interface StrainPersonalization {
   friend_id: string
   personal_notes: string | null
   strain_type_override: StrainType | null
-  thc_override: number | null
-  cbd_override: number | null
   effects_override: string[] | null
   flavors_override: string[] | null
   updated_at: string

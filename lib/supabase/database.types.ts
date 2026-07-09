@@ -106,6 +106,7 @@ export interface Database {
           friend_id: string
           status: RatingStatus | null
           favorite: boolean
+          score: number | null
           updated_at: string
         }
         Insert: {
@@ -114,6 +115,7 @@ export interface Database {
           friend_id: string
           status?: RatingStatus | null
           favorite?: boolean
+          score?: number | null
           updated_at?: string
         }
         Update: {
@@ -122,6 +124,7 @@ export interface Database {
           friend_id?: string
           status?: RatingStatus | null
           favorite?: boolean
+          score?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -148,8 +151,6 @@ export interface Database {
           friend_id: string
           personal_notes: string | null
           strain_type_override: StrainType | null
-          thc_override: number | null
-          cbd_override: number | null
           effects_override: string[] | null
           flavors_override: string[] | null
           updated_at: string
@@ -160,8 +161,6 @@ export interface Database {
           friend_id: string
           personal_notes?: string | null
           strain_type_override?: StrainType | null
-          thc_override?: number | null
-          cbd_override?: number | null
           effects_override?: string[] | null
           flavors_override?: string[] | null
           updated_at?: string
@@ -172,8 +171,6 @@ export interface Database {
           friend_id?: string
           personal_notes?: string | null
           strain_type_override?: StrainType | null
-          thc_override?: number | null
-          cbd_override?: number | null
           effects_override?: string[] | null
           flavors_override?: string[] | null
           updated_at?: string

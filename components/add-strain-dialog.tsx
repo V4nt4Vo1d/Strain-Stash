@@ -29,8 +29,6 @@ import {
 const empty = {
   name: "",
   strain_type: "hybrid" as StrainType,
-  thc: "",
-  cbd: "",
   effects: "",
   flavors: "",
   notes: "",
@@ -98,8 +96,6 @@ export function AddStrainDialog({
       setForm((f) => ({
         ...f,
         strain_type: data.strain_type ?? f.strain_type,
-        thc: data.thc != null ? String(data.thc) : f.thc,
-        cbd: data.cbd != null ? String(data.cbd) : f.cbd,
         effects: data.effects?.length ? data.effects.join(", ") : f.effects,
         flavors: data.flavors?.length ? data.flavors.join(", ") : f.flavors,
         image_url: data.image_url ?? f.image_url,
@@ -144,8 +140,6 @@ export function AddStrainDialog({
         ...f,
         name: f.name || chosen.name,
         strain_type: chosen.strain_type ?? f.strain_type,
-        thc: chosen.thc != null ? String(chosen.thc) : f.thc,
-        cbd: chosen.cbd != null ? String(chosen.cbd) : f.cbd,
         image_url: chosen.image_url ?? f.image_url,
         source_url: chosen.source_url ?? f.source_url,
         source_type: "levels",
@@ -198,8 +192,6 @@ export function AddStrainDialog({
     const { error } = await supabase.from("strains").insert({
       name: form.name.trim(),
       strain_type: form.strain_type,
-      thc: form.thc ? Number(form.thc) : null,
-      cbd: form.cbd ? Number(form.cbd) : null,
       effects: splitList(form.effects),
       flavors: splitList(form.flavors),
       notes: form.notes.trim() || null,
@@ -319,45 +311,23 @@ export function AddStrainDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div className="flex flex-col gap-2">
-              <Label>Type</Label>
-              <Select
-                value={form.strain_type}
-                onValueChange={(v) =>
-                  set("strain_type", (v as StrainType) ?? "hybrid")
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="indica">Indica</SelectItem>
-                  <SelectItem value="sativa">Sativa</SelectItem>
-                  <SelectItem value="hybrid">Hybrid</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="thc">THC %</Label>
-              <Input
-                id="thc"
-                inputMode="decimal"
-                placeholder="22"
-                value={form.thc}
-                onChange={(e) => set("thc", e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="cbd">CBD %</Label>
-              <Input
-                id="cbd"
-                inputMode="decimal"
-                placeholder="0.5"
-                value={form.cbd}
-                onChange={(e) => set("cbd", e.target.value)}
-              />
-            </div>
+          <div className="flex flex-col gap-2">
+            <Label>Type</Label>
+            <Select
+              value={form.strain_type}
+              onValueChange={(v) =>
+                set("strain_type", (v as StrainType) ?? "hybrid")
+              }
+            >
+              <SelectTrigger className="sm:w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="indica">Indica</SelectItem>
+                <SelectItem value="sativa">Sativa</SelectItem>
+                <SelectItem value="hybrid">Hybrid</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex flex-col gap-2">

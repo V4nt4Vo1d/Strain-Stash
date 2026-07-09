@@ -91,8 +91,6 @@ export function StrainCard({
   const [personalForm, setPersonalForm] = useState({
     personal_notes: "",
     strain_type_override: "",
-    thc_override: "",
-    cbd_override: "",
     effects_override: "",
     flavors_override: "",
   })
@@ -109,8 +107,6 @@ export function StrainCard({
     const source = myPersonalization
     return {
       strain_type: source?.strain_type_override ?? strain.strain_type,
-      thc: source?.thc_override ?? strain.thc,
-      cbd: source?.cbd_override ?? strain.cbd,
       effects: source?.effects_override ?? strain.effects,
       flavors: source?.flavors_override ?? strain.flavors,
       personal_notes: source?.personal_notes ?? null,
@@ -133,7 +129,7 @@ export function StrainCard({
     .filter(Boolean) as Friend[]
 
   async function upsertRating(
-    patch: { status?: RatingStatus | null; favorite?: boolean },
+    patch: { status?: RatingStatus | null; favorite?: boolean; score?: number | null },
   ) {
     if (!activeFriendId) {
       toast.error("Pick who you are first")
@@ -148,6 +144,7 @@ export function StrainCard({
         status: patch.status !== undefined ? patch.status : (myRating?.status ?? null),
         favorite:
           patch.favorite !== undefined ? patch.favorite : (myRating?.favorite ?? false),
+        score: patch.score !== undefined ? patch.score : (myRating?.score ?? null),
         updated_at: new Date().toISOString(),
       },
       { onConflict: "strain_id,friend_id" },
@@ -180,8 +177,6 @@ export function StrainCard({
     setPersonalForm({
       personal_notes: p?.personal_notes ?? "",
       strain_type_override: p?.strain_type_override ?? "",
-      thc_override: p?.thc_override != null ? String(p.thc_override) : "",
-      cbd_override: p?.cbd_override != null ? String(p.cbd_override) : "",
       effects_override: p?.effects_override?.join(", ") ?? "",
       flavors_override: p?.flavors_override?.join(", ") ?? "",
     })
@@ -201,8 +196,6 @@ export function StrainCard({
       friend_id: activeFriendId,
       personal_notes: emptyToNull(personalForm.personal_notes),
       strain_type_override: parseTypeOverride(personalForm.strain_type_override),
-      thc_override: parseNullableNumber(personalForm.thc_override),
-      cbd_override: parseNullableNumber(personalForm.cbd_override),
       effects_override: splitListOrNull(personalForm.effects_override),
       flavors_override: splitListOrNull(personalForm.flavors_override),
       updated_at: new Date().toISOString(),
@@ -253,14 +246,10 @@ export function StrainCard({
               >
                 {display.strain_type}
               </Badge>
-              {display.thc != null && (
-                <span className="text-xs text-muted-foreground">
-                  THC {display.thc}%
-                </span>
-              )}
-              {display.cbd != null && (
-                <span className="text-xs text-muted-foreground">
-                  CBD {display.cbd}%
+              {myRating?.score != null && (
+                <span className="inline-flex items-center gap-0.5 text-xs font-medium text-amber-600">
+                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                  {myRating.score}/10
                 </span>
               )}
             </div>
@@ -419,61 +408,27 @@ export function StrainCard({
                     />
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="flex flex-col gap-2">
-                      <Label>Type override</Label>
-                      <Select
-                        value={personalForm.strain_type_override || "shared"}
-                        onValueChange={(v) =>
-                          setPersonalForm((prev) => ({
-                            ...prev,
-                            strain_type_override: v === "shared" ? "" : v,
-                          }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Use shared" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="shared">Use shared</SelectItem>
-                          <SelectItem value="indica">Indica</SelectItem>
-                          <SelectItem value="sativa">Sativa</SelectItem>
-                          <SelectItem value="hybrid">Hybrid</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <Label htmlFor={`personal-thc-${strain.id}`}>THC %</Label>
-                      <Input
-                        id={`personal-thc-${strain.id}`}
-                        inputMode="decimal"
-                        placeholder="Use shared"
-                        value={personalForm.thc_override}
-                        onChange={(e) =>
-                          setPersonalForm((prev) => ({
-                            ...prev,
-                            thc_override: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <Label htmlFor={`personal-cbd-${strain.id}`}>CBD %</Label>
-                      <Input
-                        id={`personal-cbd-${strain.id}`}
-                        inputMode="decimal"
-                        placeholder="Use shared"
-                        value={personalForm.cbd_override}
-                        onChange={(e) =>
-                          setPersonalForm((prev) => ({
-                            ...prev,
-                            cbd_override: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
+                  <div className="flex flex-col gap-2">
+                    <Label>Type override</Label>
+                    <Select
+                      value={personalForm.strain_type_override || "shared"}
+                      onValueChange={(v) =>
+                        setPersonalForm((prev) => ({
+                          ...prev,
+                          strain_type_override: v === "shared" ? "" : v,
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="sm:w-48">
+                        <SelectValue placeholder="Use shared" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="shared">Use shared</SelectItem>
+                        <SelectItem value="indica">Indica</SelectItem>
+                        <SelectItem value="sativa">Sativa</SelectItem>
+                        <SelectItem value="hybrid">Hybrid</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="flex flex-col gap-2">
@@ -520,22 +475,58 @@ export function StrainCard({
             </Dialog>
           </div>
 
+          {activeFriendId && (
+            <div className="flex items-center gap-1.5">
+              <span className="shrink-0 text-xs text-muted-foreground">Score:</span>
+              <div className="flex gap-0.5">
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
+                  const isActive = myRating?.score === n
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      disabled={busy}
+                      onClick={() => upsertRating({ score: isActive ? null : n })}
+                      className={cn(
+                        "flex h-6 w-6 items-center justify-center rounded text-xs font-medium transition",
+                        isActive
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground",
+                      )}
+                    >
+                      {n}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span className="truncate">
               {addedBy ? `Added by ${addedBy.name}` : "Added"}
             </span>
             <div className="flex items-center gap-1">
-              {strain.source_url && (
-                <a
-                  href={strain.source_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 capitalize hover:text-foreground"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  {strain.source_type !== "other" ? strain.source_type : "Link"}
-                </a>
-              )}
+              <a
+                href={`https://levelsmi.com/shop/niles?search=${encodeURIComponent(strain.name)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 hover:text-foreground"
+                aria-label={`Search ${strain.name} on Levels Niles`}
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Levels
+              </a>
+              <a
+                href={`https://www.leafly.com/strains/${slugify(strain.name)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 hover:text-foreground"
+                aria-label={`View ${strain.name} on Leafly`}
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Leafly
+              </a>
               <button
                 type="button"
                 onClick={deleteStrain}
@@ -560,13 +551,6 @@ function splitListOrNull(value: string) {
   return list.length > 0 ? list : null
 }
 
-function parseNullableNumber(value: string) {
-  const normalized = value.trim()
-  if (!normalized) return null
-  const parsed = Number(normalized)
-  return Number.isFinite(parsed) ? parsed : null
-}
-
 function parseTypeOverride(value: string): StrainType | null {
   if (value === "indica" || value === "sativa" || value === "hybrid") {
     return value
@@ -577,6 +561,13 @@ function parseTypeOverride(value: string): StrainType | null {
 function emptyToNull(value: string) {
   const normalized = value.trim()
   return normalized || null
+}
+
+function slugify(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
 }
 
 function FriendPill({ friend }: { friend: Friend }) {
