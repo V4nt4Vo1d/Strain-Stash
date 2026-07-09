@@ -39,11 +39,5 @@
     "supabase": "^2.109.1",
     "tailwindcss": "^4.3.2",
     "typescript": "5.9.3"
-  },
-  "pnpm": {
-    "overrides": {
-      "hono": "4.12.25",
-      "postcss": "8.5.16"
-    }
   }
 }
