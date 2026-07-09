@@ -100,7 +100,8 @@ export function StrainCard({
   const addedBy = strain.added_by ? friendById.get(strain.added_by) : undefined
 
   const myRating = strain.ratings.find((r) => r.friend_id === activeFriendId)
-  const myPersonalization = strain.personalizations.find(
+  const personalizations = strain.personalizations ?? []
+  const myPersonalization = personalizations.find(
     (p) => p.friend_id === activeFriendId,
   )
 

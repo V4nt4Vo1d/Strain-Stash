@@ -53,16 +53,31 @@ export function AddStrainDialog({
   activeFriendId,
   onAdded,
   trigger,
+  open,
+  onOpenChange,
 }: {
   activeFriendId: string | null
   onAdded: () => void
   trigger: React.ReactElement
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }) {
-  const [open, setOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
   const [form, setForm] = useState(empty)
   const [saving, setSaving] = useState(false)
   const [fetching, setFetching] = useState(false)
   const [lookingUp, setLookingUp] = useState(false)
+
+  const isControlled = open !== undefined
+  const dialogOpen = isControlled ? open : internalOpen
+
+  function setDialogOpen(nextOpen: boolean) {
+    if (!isControlled) {
+      setInternalOpen(nextOpen)
+    }
+    onOpenChange?.(nextOpen)
+    if (!nextOpen) setForm(empty)
+  }
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }))
@@ -200,20 +215,19 @@ export function AddStrainDialog({
     }
     toast.success(`Added ${form.name.trim()}`)
     setForm(empty)
-    setOpen(false)
+    setDialogOpen(false)
     onAdded()
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        setOpen(o)
-        if (!o) setForm(empty)
-      }}
-    >
+    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
       <DialogTrigger render={trigger} />
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent
+        className="max-h-[90vh] overflow-y-auto sm:max-w-lg"
+        onInteractOutside={(event) => {
+          if (saving || lookingUp || fetching) event.preventDefault()
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="font-serif">Add a strain</DialogTitle>
           <DialogDescription>

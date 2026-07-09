@@ -30,9 +30,15 @@ type ViewFilter =
 
 export default function Page() {
   const { friends, mutate: mutateFriends } = useFriends()
-  const { strains, isLoading, mutate: mutateStrains } = useStrains()
+  const {
+    strains,
+    error: strainsError,
+    isLoading,
+    mutate: mutateStrains,
+  } = useStrains()
   const { activeFriendId, setActive, ready } = useActiveFriend()
 
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const [friendFilter, setFriendFilter] = useState<string>("all")
@@ -139,6 +145,8 @@ export default function Page() {
             <AddStrainDialog
               activeFriendId={activeFriendId}
               onAdded={mutateStrains}
+              open={addDialogOpen}
+              onOpenChange={setAddDialogOpen}
               trigger={
                 <Button className="gap-1">
                   <Plus className="h-4 w-4" />
@@ -186,6 +194,13 @@ export default function Page() {
               activeFriendId={activeFriendId}
               onSelect={setActive}
             />
+          </div>
+        )}
+
+        {strainsError && (
+          <div className="mb-6 rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+            Couldn&apos;t load strains from Supabase. Confirm your latest schema
+            migration was applied.
           </div>
         )}
 
@@ -282,8 +297,7 @@ export default function Page() {
         ) : filtered.length === 0 ? (
           <EmptyState
             hasStrains={strains.length > 0}
-            activeFriendId={activeFriendId}
-            onAdded={mutateStrains}
+            onAddClick={() => setAddDialogOpen(true)}
           />
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -326,12 +340,10 @@ function StatTile({
 
 function EmptyState({
   hasStrains,
-  activeFriendId,
-  onAdded,
+  onAddClick,
 }: {
   hasStrains: boolean
-  activeFriendId: string | null
-  onAdded: () => void
+  onAddClick: () => void
 }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-card/50 py-20 text-center">
@@ -349,16 +361,10 @@ function EmptyState({
         </p>
       </div>
       {!hasStrains && (
-        <AddStrainDialog
-          activeFriendId={activeFriendId}
-          onAdded={onAdded}
-          trigger={
-            <Button className="gap-1">
-              <Plus className="h-4 w-4" />
-              Add a strain
-            </Button>
-          }
-        />
+        <Button className="gap-1" onClick={onAddClick}>
+          <Plus className="h-4 w-4" />
+          Add a strain
+        </Button>
       )}
     </div>
   )
