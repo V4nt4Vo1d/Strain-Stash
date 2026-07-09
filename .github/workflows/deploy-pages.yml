@@ -80,6 +80,7 @@ jobs:
         run: |
           PROJECT_REF=$(echo "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" | sed 's|https://\([^.]*\)\.supabase\.co.*|\1|')
           pnpm supabase functions deploy leafly-lookup --no-verify-jwt --project-ref "$PROJECT_REF"
+          pnpm supabase functions deploy levels-niles-products --no-verify-jwt --project-ref "$PROJECT_REF"
 
   deploy:
     environment:

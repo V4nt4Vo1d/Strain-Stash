@@ -141,6 +141,60 @@ export interface Database {
           },
         ]
       }
+      strain_personalizations: {
+        Row: {
+          id: string
+          strain_id: string
+          friend_id: string
+          personal_notes: string | null
+          strain_type_override: StrainType | null
+          thc_override: number | null
+          cbd_override: number | null
+          effects_override: string[] | null
+          flavors_override: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          strain_id: string
+          friend_id: string
+          personal_notes?: string | null
+          strain_type_override?: StrainType | null
+          thc_override?: number | null
+          cbd_override?: number | null
+          effects_override?: string[] | null
+          flavors_override?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          strain_id?: string
+          friend_id?: string
+          personal_notes?: string | null
+          strain_type_override?: StrainType | null
+          thc_override?: number | null
+          cbd_override?: number | null
+          effects_override?: string[] | null
+          flavors_override?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strain_personalizations_strain_id_fkey"
+            columns: ["strain_id"]
+            isOneToOne: false
+            referencedRelation: "strains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "strain_personalizations_friend_id_fkey"
+            columns: ["friend_id"]
+            isOneToOne: false
+            referencedRelation: "friends"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

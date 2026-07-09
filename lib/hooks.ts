@@ -27,7 +27,7 @@ export function useStrains() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from("strains")
-        .select("*, ratings:strain_ratings(*)")
+        .select("*, ratings:strain_ratings(*), personalizations:strain_personalizations(*)")
         .order("created_at", { ascending: false })
       if (error) throw error
       return (data ?? []) as StrainWithRatings[]

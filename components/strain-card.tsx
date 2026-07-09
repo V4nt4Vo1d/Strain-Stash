@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import {
   ThumbsUp,
   ThumbsDown,
@@ -9,18 +9,40 @@ import {
   ExternalLink,
   Trash2,
   Leaf,
+  PencilLine,
 } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import type {
   Friend,
   RatingStatus,
+  StrainPersonalization,
+  StrainType,
   StrainWithRatings,
 } from "@/lib/types"
 import { FRIEND_COLOR_STYLES, initials } from "@/lib/friend-colors"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 const TYPE_STYLES: Record<string, string> = {
   indica: "bg-violet-100 text-violet-800 border-violet-200",
@@ -64,10 +86,36 @@ export function StrainCard({
   onChanged: () => void
 }) {
   const [busy, setBusy] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [personalSaving, setPersonalSaving] = useState(false)
+  const [personalForm, setPersonalForm] = useState({
+    personal_notes: "",
+    strain_type_override: "",
+    thc_override: "",
+    cbd_override: "",
+    effects_override: "",
+    flavors_override: "",
+  })
   const friendById = new Map(friends.map((f) => [f.id, f]))
   const addedBy = strain.added_by ? friendById.get(strain.added_by) : undefined
 
   const myRating = strain.ratings.find((r) => r.friend_id === activeFriendId)
+  const myPersonalization = strain.personalizations.find(
+    (p) => p.friend_id === activeFriendId,
+  )
+
+  const display = useMemo(() => {
+    const source = myPersonalization
+    return {
+      strain_type: source?.strain_type_override ?? strain.strain_type,
+      thc: source?.thc_override ?? strain.thc,
+      cbd: source?.cbd_override ?? strain.cbd,
+      effects: source?.effects_override ?? strain.effects,
+      flavors: source?.flavors_override ?? strain.flavors,
+      personal_notes: source?.personal_notes ?? null,
+      shared_notes: strain.notes,
+    }
+  }, [myPersonalization, strain])
 
   const grouped: Record<RatingStatus, Friend[]> = {
     liked: [],
@@ -126,6 +174,53 @@ export function StrainCard({
     onChanged()
   }
 
+  function openPersonalEditor() {
+    const p = myPersonalization
+    setPersonalForm({
+      personal_notes: p?.personal_notes ?? "",
+      strain_type_override: p?.strain_type_override ?? "",
+      thc_override: p?.thc_override != null ? String(p.thc_override) : "",
+      cbd_override: p?.cbd_override != null ? String(p.cbd_override) : "",
+      effects_override: p?.effects_override?.join(", ") ?? "",
+      flavors_override: p?.flavors_override?.join(", ") ?? "",
+    })
+    setEditOpen(true)
+  }
+
+  async function savePersonalization() {
+    if (!activeFriendId) {
+      toast.error("Pick who you are first")
+      return
+    }
+
+    setPersonalSaving(true)
+    const supabase = createClient()
+    const payload: Partial<StrainPersonalization> = {
+      strain_id: strain.id,
+      friend_id: activeFriendId,
+      personal_notes: emptyToNull(personalForm.personal_notes),
+      strain_type_override: parseTypeOverride(personalForm.strain_type_override),
+      thc_override: parseNullableNumber(personalForm.thc_override),
+      cbd_override: parseNullableNumber(personalForm.cbd_override),
+      effects_override: splitListOrNull(personalForm.effects_override),
+      flavors_override: splitListOrNull(personalForm.flavors_override),
+      updated_at: new Date().toISOString(),
+    }
+
+    const { error } = await supabase
+      .from("strain_personalizations")
+      .upsert(payload, { onConflict: "strain_id,friend_id" })
+
+    setPersonalSaving(false)
+    if (error) {
+      toast.error("Couldn't save your personal details")
+      return
+    }
+    toast.success("Saved your personal strain details")
+    setEditOpen(false)
+    onChanged()
+  }
+
   return (
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
       {strain.image_url ? (
@@ -153,18 +248,18 @@ export function StrainCard({
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <Badge
                 variant="outline"
-                className={cn("capitalize", TYPE_STYLES[strain.strain_type])}
+                className={cn("capitalize", TYPE_STYLES[display.strain_type])}
               >
-                {strain.strain_type}
+                {display.strain_type}
               </Badge>
-              {strain.thc != null && (
+              {display.thc != null && (
                 <span className="text-xs text-muted-foreground">
-                  THC {strain.thc}%
+                  THC {display.thc}%
                 </span>
               )}
-              {strain.cbd != null && (
+              {display.cbd != null && (
                 <span className="text-xs text-muted-foreground">
-                  CBD {strain.cbd}%
+                  CBD {display.cbd}%
                 </span>
               )}
             </div>
@@ -179,9 +274,9 @@ export function StrainCard({
           )}
         </div>
 
-        {(strain.effects.length > 0 || strain.flavors.length > 0) && (
+        {(display.effects.length > 0 || display.flavors.length > 0) && (
           <div className="flex flex-wrap gap-1.5">
-            {strain.effects.map((e) => (
+            {display.effects.map((e) => (
               <span
                 key={`e-${e}`}
                 className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700"
@@ -189,7 +284,7 @@ export function StrainCard({
                 {e}
               </span>
             ))}
-            {strain.flavors.map((f) => (
+            {display.flavors.map((f) => (
               <span
                 key={`f-${f}`}
                 className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
@@ -200,9 +295,16 @@ export function StrainCard({
           </div>
         )}
 
-        {strain.notes && (
+        {display.personal_notes && (
+          <p className="rounded-md border border-primary/30 bg-primary/5 px-2.5 py-2 text-sm leading-relaxed text-foreground">
+            <span className="mr-1 font-medium">Your note:</span>
+            {display.personal_notes}
+          </p>
+        )}
+
+        {display.shared_notes && (
           <p className="text-sm leading-relaxed text-muted-foreground">
-            {strain.notes}
+            {display.shared_notes}
           </p>
         )}
 
@@ -270,6 +372,151 @@ export function StrainCard({
                 )}
               />
             </Button>
+
+            <Dialog
+              open={editOpen}
+              onOpenChange={(open) => {
+                setEditOpen(open)
+              }}
+            >
+              <DialogTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={!activeFriendId}
+                    onClick={openPersonalEditor}
+                    aria-label="Edit my personal strain details"
+                    className="h-8 w-8 shrink-0"
+                  >
+                    <PencilLine className="h-4 w-4" />
+                  </Button>
+                }
+              />
+              <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle className="font-serif">Your personal details</DialogTitle>
+                  <DialogDescription>
+                    These edits are saved just for you and do not change crew-shared strain details.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor={`personal-note-${strain.id}`}>My comment</Label>
+                    <Textarea
+                      id={`personal-note-${strain.id}`}
+                      rows={3}
+                      placeholder="How this strain tasted or felt for you"
+                      value={personalForm.personal_notes}
+                      onChange={(e) =>
+                        setPersonalForm((prev) => ({
+                          ...prev,
+                          personal_notes: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="flex flex-col gap-2">
+                      <Label>Type override</Label>
+                      <Select
+                        value={personalForm.strain_type_override || "shared"}
+                        onValueChange={(v) =>
+                          setPersonalForm((prev) => ({
+                            ...prev,
+                            strain_type_override: v === "shared" ? "" : v,
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Use shared" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="shared">Use shared</SelectItem>
+                          <SelectItem value="indica">Indica</SelectItem>
+                          <SelectItem value="sativa">Sativa</SelectItem>
+                          <SelectItem value="hybrid">Hybrid</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor={`personal-thc-${strain.id}`}>THC %</Label>
+                      <Input
+                        id={`personal-thc-${strain.id}`}
+                        inputMode="decimal"
+                        placeholder="Use shared"
+                        value={personalForm.thc_override}
+                        onChange={(e) =>
+                          setPersonalForm((prev) => ({
+                            ...prev,
+                            thc_override: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor={`personal-cbd-${strain.id}`}>CBD %</Label>
+                      <Input
+                        id={`personal-cbd-${strain.id}`}
+                        inputMode="decimal"
+                        placeholder="Use shared"
+                        value={personalForm.cbd_override}
+                        onChange={(e) =>
+                          setPersonalForm((prev) => ({
+                            ...prev,
+                            cbd_override: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor={`personal-effects-${strain.id}`}>
+                      Effects override
+                    </Label>
+                    <Input
+                      id={`personal-effects-${strain.id}`}
+                      placeholder="Use shared, or enter comma-separated effects"
+                      value={personalForm.effects_override}
+                      onChange={(e) =>
+                        setPersonalForm((prev) => ({
+                          ...prev,
+                          effects_override: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor={`personal-flavors-${strain.id}`}>
+                      Flavors override
+                    </Label>
+                    <Input
+                      id={`personal-flavors-${strain.id}`}
+                      placeholder="Use shared, or enter comma-separated flavors"
+                      value={personalForm.flavors_override}
+                      onChange={(e) =>
+                        setPersonalForm((prev) => ({
+                          ...prev,
+                          flavors_override: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button onClick={savePersonalization} disabled={personalSaving}>
+                    {personalSaving ? "Saving..." : "Save my details"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
 
           <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -302,6 +549,33 @@ export function StrainCard({
       </div>
     </article>
   )
+}
+
+function splitListOrNull(value: string) {
+  const list = value
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean)
+  return list.length > 0 ? list : null
+}
+
+function parseNullableNumber(value: string) {
+  const normalized = value.trim()
+  if (!normalized) return null
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function parseTypeOverride(value: string): StrainType | null {
+  if (value === "indica" || value === "sativa" || value === "hybrid") {
+    return value
+  }
+  return null
+}
+
+function emptyToNull(value: string) {
+  const normalized = value.trim()
+  return normalized || null
 }
 
 function FriendPill({ friend }: { friend: Friend }) {

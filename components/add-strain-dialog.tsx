@@ -39,6 +39,16 @@ const empty = {
   image_url: "",
 }
 
+type LevelsProduct = {
+  name: string
+  strain_type: StrainType
+  thc: number | null
+  cbd: number | null
+  image_url: string | null
+  source_url: string | null
+  description: string | null
+}
+
 export function AddStrainDialog({
   activeFriendId,
   onAdded,
@@ -86,6 +96,52 @@ export function AddStrainDialog({
       toast.success("Autofilled from Leafly!")
     } catch {
       toast.error("Couldn't look up that strain")
+    } finally {
+      setLookingUp(false)
+    }
+  }
+
+  async function lookupLevelsNiles() {
+    const query = form.name.trim()
+    setLookingUp(true)
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase.functions.invoke(
+        "levels-niles-products",
+        {
+          body: { query, limit: 10 },
+        },
+      )
+
+      const products = (data?.products ?? []) as LevelsProduct[]
+      if (error || !products.length) {
+        toast.error("Couldn't find products on Levels Niles")
+        return
+      }
+
+      const chosen = query ? pickBestLevelsProduct(products, query) : products[0]
+      if (!chosen) {
+        toast.error("Couldn't pick a product from Levels Niles")
+        return
+      }
+
+      setForm((f) => ({
+        ...f,
+        name: f.name || chosen.name,
+        strain_type: chosen.strain_type ?? f.strain_type,
+        thc: chosen.thc != null ? String(chosen.thc) : f.thc,
+        cbd: chosen.cbd != null ? String(chosen.cbd) : f.cbd,
+        image_url: chosen.image_url ?? f.image_url,
+        source_url: chosen.source_url ?? f.source_url,
+        source_type: "levels",
+        notes:
+          f.notes ||
+          (chosen.description ? String(chosen.description).slice(0, 280) : ""),
+      }))
+
+      toast.success(`Autofilled from Levels Niles: ${chosen.name}`)
+    } catch {
+      toast.error("Couldn't pull products from Levels Niles")
     } finally {
       setLookingUp(false)
     }
@@ -232,6 +288,20 @@ export function AddStrainDialog({
                 )}
                 <span className="ml-1 hidden sm:inline">Leafly</span>
               </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={lookupLevelsNiles}
+                disabled={lookingUp}
+                title="Look up on Levels Niles"
+              >
+                {lookingUp ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                <span className="ml-1 hidden sm:inline">Levels Niles</span>
+              </Button>
             </div>
           </div>
 
@@ -364,4 +434,19 @@ function toTitleCase(value: string) {
     .filter(Boolean)
     .map((word) => word[0]?.toUpperCase() + word.slice(1).toLowerCase())
     .join(" ")
+}
+
+function pickBestLevelsProduct(products: LevelsProduct[], query: string) {
+  const normalized = query.trim().toLowerCase()
+  return [...products].sort((a, b) => {
+    return scoreProductName(b.name, normalized) - scoreProductName(a.name, normalized)
+  })[0]
+}
+
+function scoreProductName(name: string, query: string) {
+  const lower = name.toLowerCase()
+  if (lower === query) return 1000
+  if (lower.startsWith(query)) return 500
+  if (lower.includes(query)) return 100
+  return 0
 }
