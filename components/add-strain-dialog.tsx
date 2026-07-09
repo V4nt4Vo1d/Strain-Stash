@@ -52,9 +52,43 @@ export function AddStrainDialog({
   const [form, setForm] = useState(empty)
   const [saving, setSaving] = useState(false)
   const [fetching, setFetching] = useState(false)
+  const [lookingUp, setLookingUp] = useState(false)
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }))
+  }
+
+  async function lookupLeafly() {
+    if (!form.name.trim()) return
+    setLookingUp(true)
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase.functions.invoke("leafly-lookup", {
+        body: { strainName: form.name.trim() },
+      })
+      if (error || !data || data.error) {
+        toast.error(data?.error ?? "Couldn't find that strain on Leafly")
+        return
+      }
+      setForm((f) => ({
+        ...f,
+        strain_type: data.strain_type ?? f.strain_type,
+        thc: data.thc != null ? String(data.thc) : f.thc,
+        cbd: data.cbd != null ? String(data.cbd) : f.cbd,
+        effects: data.effects?.length ? data.effects.join(", ") : f.effects,
+        flavors: data.flavors?.length ? data.flavors.join(", ") : f.flavors,
+        image_url: data.image_url ?? f.image_url,
+        source_url:
+          f.source_url ||
+          `https://www.leafly.com/strains/${slugify(form.name.trim())}`,
+        source_type: f.source_type === "other" ? "leafly" : f.source_type,
+      }))
+      toast.success("Autofilled from Leafly!")
+    } catch {
+      toast.error("Couldn't look up that strain")
+    } finally {
+      setLookingUp(false)
+    }
   }
 
   async function fetchPreview() {
@@ -176,12 +210,29 @@ export function AddStrainDialog({
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              placeholder="Blue Dream"
-              value={form.name}
-              onChange={(e) => set("name", e.target.value)}
-            />
+            <div className="flex gap-2">
+              <Input
+                id="name"
+                className="flex-1"
+                placeholder="Blue Dream"
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={lookupLeafly}
+                disabled={lookingUp || !form.name.trim()}
+                title="Look up on Leafly"
+              >
+                {lookingUp ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                <span className="ml-1 hidden sm:inline">Leafly</span>
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
@@ -275,6 +326,13 @@ function splitList(value: string) {
     .split(",")
     .map((v) => v.trim())
     .filter(Boolean)
+}
+
+function slugify(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
 }
 
 function inferSource(hostname: string): SourceType {
